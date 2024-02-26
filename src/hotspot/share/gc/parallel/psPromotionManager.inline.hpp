@@ -153,6 +153,10 @@ inline oop PSPromotionManager::copy_to_survivor_space(oop o) {
             }
           }
         }
+        if (new_obj != NULL) {
+          // We're going to allocate linearly, so might as well prefetch ahead.
+          Prefetch::write(new_obj, PrefetchCopyIntervalInBytes);
+        }
       }
     }
 
