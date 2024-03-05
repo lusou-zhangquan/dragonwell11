@@ -551,6 +551,38 @@ public:
 #endif
 };
 
+class MachProfileChangeDetectNode : public MachIdealNode {
+private:
+  int _constant_offset;
+  Compile::Constant* _constant;
+
+public:
+  MachProfileChangeDetectNode() : _constant_offset(-1), _constant(NULL) {
+    init_class_id(Class_MachProfileChangeDetect);
+  }
+  virtual void emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const;
+  virtual uint size(PhaseRegAlloc *ra_) const;
+  virtual int reloc() const;
+  void set_constant(Compile::Constant* constant) {
+    assert(_constant == NULL, "_constant should not be set");
+    _constant = constant;
+  }
+  int get_constant_offset() {
+    if (_constant_offset == -1) {
+      assert(_constant != NULL, "field _constant should not set");
+      _constant_offset = _constant->offset();
+    }
+    return _constant_offset;
+  }
+
+  int get_constant_offset() const { return ((MachProfileChangeDetectNode*) this)->get_constant_offset(); }
+
+#ifndef PRODUCT
+  virtual const char *Name() const { return "MachProfileChangeDetectNode"; }
+  virtual void format( PhaseRegAlloc *, outputStream *st ) const;
+#endif
+};
+
 //------------------------------MachSpillCopyNode------------------------------
 // Machine SpillCopy Node.  Copies 1 or 2 words from any location to any
 // location (stack or register).

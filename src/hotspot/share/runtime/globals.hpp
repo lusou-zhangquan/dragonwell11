@@ -2696,6 +2696,17 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
   diagnostic(bool, UseAltFastLocking, false,                                \
           "Alternative lightweight locking")                                \
                                                                             \
+  product(double, ProfileChangeDetectThreshold, 0.001,                      \
+          "Insert invoke counter into the cold blocks with freq"            \
+          " lower than this threshold") range(0, 0.999)                     \
+                                                                            \
+  product(uint64_t, ProfileChangeReportThreshold, 40000,                    \
+          "Report profile change if invoke count of cold branch is"         \
+          "higher than threshold")                                          \
+                                                                            \
+  product(bool, EnableProfileChangeDetect, false,                          \
+          "Enable cold blocks detect feature")                              \
+                                                                            \
   product(bool, UseCompactObjectHeaders, false,                             \
           "Use compact 64-bit object headers in 64-bit VM.")                \
 

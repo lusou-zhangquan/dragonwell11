@@ -418,6 +418,8 @@ class CodeBuffer: public StackObj {
   address      _decode_begin;   // start address for decode
   address      decode_begin();
 
+  int _profile_change_detect_offset;
+
   void initialize_misc(const char * name) {
     // all pointers other than code_start/end and those inside the sections
     assert(name != NULL, "must have a name");
@@ -429,6 +431,7 @@ class CodeBuffer: public StackObj {
     _overflow_arena  = NULL;
     _code_strings    = CodeStrings();
     _last_insn       = NULL;
+    _profile_change_detect_offset = -1;
 #if INCLUDE_AOT
     _immutable_PIC   = false;
 #endif
@@ -543,6 +546,18 @@ class CodeBuffer: public StackObj {
   static int locator(int pos, int sect) { return (pos << sect_bits) | sect; }
   int        locator(address addr) const;
   address    locator_address(int locator) const;
+
+  int get_profile_change_detect_offset() {
+    return _profile_change_detect_offset;
+  }
+
+  void set_profile_change_detect_offset(int offset) {
+    _profile_change_detect_offset = offset;
+  }
+
+  bool is_profile_change_detect_offset_set() {
+    return _profile_change_detect_offset != -1;
+  }
 
   // Heuristic for pre-packing the taken/not-taken bit of a predicted branch.
   bool is_backward_branch(Label& L);

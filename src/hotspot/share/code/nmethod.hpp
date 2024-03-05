@@ -107,6 +107,7 @@ class nmethod : public CompiledMethod {
   int _handler_table_offset;
   int _nul_chk_table_offset;
   int _nmethod_end_offset;
+  int _profile_change_detect_offset;
 
   int code_offset() const { return (address) code_begin() - header_begin(); }
 
@@ -275,6 +276,13 @@ class nmethod : public CompiledMethod {
   bool is_osr_method() const                      { return _entry_bci != InvocationEntryBci; }
 
   // boundaries for different parts
+  address profile_change_detect_offset_in_consts() const {
+    if (_profile_change_detect_offset == -1) {
+      return NULL;
+    } else {
+      return consts_begin() + _profile_change_detect_offset;
+    }
+  }
   address consts_begin          () const          { return           header_begin() + _consts_offset        ; }
   address consts_end            () const          { return           code_begin()                           ; }
   address stub_begin            () const          { return           header_begin() + _stub_offset          ; }

@@ -1717,6 +1717,36 @@ uint MachBreakpointNode::size(PhaseRegAlloc *ra_) const {
   }
 
 //=============================================================================
+
+#ifndef PRODUCT
+  void MachProfileChangeDetectNode::format(PhaseRegAlloc*, outputStream* st) const {
+    st->print("adrp x8, consts, offset \t#  get address of invoke conter from constant table");
+    st->print("add x8, x8, offset");
+    st->print("ldr x9, [x8] \t# load invoke conter value, inc, store back");
+    st->print("add x9, x9, #0x1");
+    st->print("str x9, [x8]");
+  }
+#endif
+
+  void MachProfileChangeDetectNode::emit(CodeBuffer &cbuf, PhaseRegAlloc* ra_) const {
+    MacroAssembler _masm(&cbuf);
+    uint64_t offset;
+    __ adrp(rscratch1, InternalAddress(__ code()->consts()->start() + get_constant_offset()), offset);
+    __ add(rscratch1, rscratch1, offset);
+    __ ldr(rscratch2, Address(rscratch1));
+    __ add(rscratch2, rscratch2, 1);
+    __ str(rscratch2, Address(rscratch1));
+  }
+
+  uint MachProfileChangeDetectNode::size(PhaseRegAlloc*) const {
+    return NativeInstruction::instruction_size * 5;
+  }
+
+  int MachProfileChangeDetectNode::reloc() const {
+    return 1;
+  }
+
+//=============================================================================
 const RegMask& MachConstantBaseNode::_out_RegMask = RegMask::Empty;
 
 int Compile::ConstantTable::calculate_table_base_offset() const {

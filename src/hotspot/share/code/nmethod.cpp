@@ -470,6 +470,16 @@ nmethod* nmethod::new_native_nmethod(const methodHandle& method,
   return nm;
 }
 
+void scan_hot_nmethods(nmethod* nm) {
+  address profile_change_detect_counter = nm->profile_change_detect_offset_in_consts();
+  if (profile_change_detect_counter != NULL) {
+    uint64_t* counter = (uint64_t*) profile_change_detect_counter;
+    if (*counter > ProfileChangeReportThreshold) {
+      log_info(compilation)("invoke counter of method's cold path %s is: %ld", nm->method()->external_name(), *counter);
+    }
+  }
+}
+
 nmethod* nmethod::new_nmethod(const methodHandle& method,
   int compile_id,
   int entry_bci,
@@ -494,6 +504,9 @@ nmethod* nmethod::new_nmethod(const methodHandle& method,
   // create nmethod
   nmethod* nm = NULL;
   { MutexLockerEx mu(CodeCache_lock, Mutex::_no_safepoint_check_flag);
+    if (EnableProfileChangeDetect) {
+      CodeCache::nmethods_do(scan_hot_nmethods);
+    }
     int nmethod_size =
       CodeBlob::allocation_size(code_buffer, sizeof(nmethod))
       + adjust_pcs_size(debug_info->pcs_size())
@@ -601,6 +614,7 @@ nmethod::nmethod(
     _exception_cache         = NULL;
     _pc_desc_container.reset_to(NULL);
     _hotness_counter         = NMethodSweeper::hotness_counter_reset_val();
+    _profile_change_detect_offset        = -1;
 
     _scopes_data_begin = (address) this + scopes_data_offset;
     _deopt_handler_begin = (address) this + deoptimize_offset;
@@ -691,6 +705,7 @@ nmethod::nmethod(
     _comp_level              = comp_level;
     _orig_pc_offset          = orig_pc_offset;
     _hotness_counter         = NMethodSweeper::hotness_counter_reset_val();
+    _profile_change_detect_offset        = code_buffer->get_profile_change_detect_offset();
 
     // Section offsets
     _consts_offset           = content_offset()      + code_buffer->total_offset_of(code_buffer->consts());

@@ -119,6 +119,32 @@ void Compile::Output() {
     }
   }
 
+  // Insert MachProfileChangeDetectNode in cold block
+  if (EnableProfileChangeDetect) {
+    int constant_offset = -1;
+    for (uint i = 0; i < _cfg->number_of_blocks(); i++) {
+      Block* block = _cfg->get_block(i);
+      // 1. no stub code generation
+      // 2. level 4 compilation
+      // 3. block freq lower than ProfileChangeDetectThreshold
+      // 4. no uncommon trap?
+      if (compile_id() != 0 && is_highest_tier_compile(env()->comp_level()) && block->_freq < ProfileChangeDetectThreshold) {
+        MachProfileChangeDetectNode* profile_change_node = new MachProfileChangeDetectNode();
+        block->insert_node(profile_change_node, 1);
+        if (constant_offset == -1) {
+          Constant con(T_LONG, block->_freq, false);
+          Compile::current()->constant_table().add(con);
+          constant_offset = Compile::current()->constant_table().length() - 1;
+          Compile::current()->set_has_profile_change_detect_node();
+          log_info(compilation)("Insert profile check code for block %d of method %s with freq %.6lf",
+              i, method()->name()->as_utf8(), block->_freq);
+        }
+        profile_change_node->set_constant(Compile::current()->constant_table().get_constant(constant_offset));
+        _cfg->map_node_to_block(profile_change_node, block);
+      }
+    }
+  }
+
   // Keeper of sizing aspects
   BufferSizingData buf_sizes = BufferSizingData();
 
@@ -1025,6 +1051,9 @@ void Compile::estimate_buffer_size(int& const_req) {
     // constant table (including the padding to the next section).
     constant_table().calculate_offsets_and_size();
     const_req = constant_table().size() + add_size;
+  } else if (has_profile_change_detect_node()) {
+    constant_table().calculate_offsets_and_size();
+    const_req = constant_table().size();
   }
 
   // Initialize the space for the BufferBlob used to find and verify
@@ -1135,7 +1164,7 @@ void Compile::fill_buffer(CodeBuffer* cb, uint* blk_starts) {
   NonSafepointEmitter non_safepoints(this);  // emit non-safepoints lazily
 
   // Emit the constant table.
-  if (has_mach_constant_base_node()) {
+  if (has_mach_constant_base_node() || has_profile_change_detect_node()) {
     if (!constant_table().emit(*cb)) {
       C->record_failure("consts section overflow");
       return;
@@ -1185,6 +1214,11 @@ void Compile::fill_buffer(CodeBuffer* cb, uint* blk_starts) {
 
       // Get the node
       Node* n = block->get_node(j);
+
+      // ProfileChangeDetectNode's invoke counter offset in constant table
+      if (n->is_MachProfileChangeDetect() && !cb->is_profile_change_detect_offset_set()) {
+        cb->set_profile_change_detect_offset(((MachProfileChangeDetectNode*) n)->get_constant_offset());
+      }
 
       // See if delay slots are supported
       if (valid_bundle_info(n) &&
